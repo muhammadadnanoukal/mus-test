@@ -20,7 +20,7 @@ class BomInherit(models.Model):
         for prod in template.product_variant_ids:
             values = {'product_id': prod.id, 'parent_id': res.id}
             copy = res.copy(default=values)
-            print("variant ", prod.name, copy.product_id)
+
 
         return res
 
@@ -43,3 +43,37 @@ class BomInherit(models.Model):
         action = self.env["ir.actions.actions"]._for_xml_id("altanmia_eva_production.action_variant_bom")
         action['domain'] = [('parent_id','=', self.id)]
         return action
+
+class MrpBomLine(models.Model):
+    _name = 'mrp.bom.line'
+    _inherit = 'mrp.bom.line'
+
+    product_id = fields.Many2one('product.product', 'Component', required=False, check_company=True)
+    product_template_id = fields.Many2one('product.template', 'Product Template', store=True, index=True)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        res=None
+        print("vals_list ", vals_list)
+        for values in vals_list:
+            print("values is ", values)
+            if not values.get("product_id", False) and values.get('product_template_id', False):
+                print("product tem", values['product_template_id'])
+                template = self.env['product.template'].browse(values['product_template_id'])
+                first = True
+                for prod in template.product_variant_ids:
+                    if first:
+                        print("first line", prod.name)
+                        values.update({'product_id': prod.id})
+                        res = super(MrpBomLine, self).create(values)
+                        first = False
+                        continue
+                    print("next line", prod.name)
+                    values = {'product_id': prod.id}
+                    copy = res.copy(default=values)
+
+        print("add line is ", res)
+        if not res:
+            res = super(MrpBomLine, self).create(vals_list)
+
+        return res
